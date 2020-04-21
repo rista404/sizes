@@ -8,9 +8,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"text/tabwriter"
 
 	"code.cloudfoundry.org/bytefmt"
+	"github.com/juju/ansiterm"
 	. "github.com/logrusorgru/aurora"
 )
 
@@ -77,10 +77,10 @@ func main() {
 	}
 
 	flag.Parse()
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	if err := Process(dir, w); err != nil {
+	tw := ansiterm.NewTabWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	if err := Process(dir, tw); err != nil {
 		fmt.Printf("something went wrong: %s", err)
 		os.Exit(2)
 	}
-	w.Flush()
+	tw.Flush()
 }
