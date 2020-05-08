@@ -8,13 +8,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/juju/ansiterm"
 	. "github.com/logrusorgru/aurora"
 )
-
-var maxlvl = flag.Int("level", 3, "")
 
 func DirSize(path string) (int64, error) {
 	var size int64
@@ -30,43 +29,50 @@ func DirSize(path string) (int64, error) {
 	return size, err
 }
 
+type item struct {
+	name  string
+	size  uint64
+	isDir bool
+}
+
 func Process(dir string, w io.Writer) error {
 	list, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return fmt.Errorf("err reading the directory %s: %s", dir, err)
 	}
 
-	var dirs, files []os.FileInfo
+	var items []*item
 
+	// collect
 	for _, f := range list {
-		if f.IsDir() {
-			dirs = append(dirs, f)
-		} else {
-			files = append(files, f)
+		n := f.Name()
+		itm := &item{
+			name:  n,
+			isDir: f.IsDir(),
 		}
-	}
 
-	// Print dirs
-	for _, f := range dirs {
-		name := f.Name()
-		path := path.Join(dir, name)
-		size, err := DirSize(path)
+		p := path.Join(dir, n)
+		s, err := DirSize(p)
 		if err != nil {
 			return err
 		}
-		prettySize := bytefmt.ByteSize(uint64(size))
-		fmt.Fprintf(w, "%s\t%s\t\n", Bold(name), prettySize)
+		itm.size = uint64(s)
+
+		items = append(items, itm)
 	}
 
-	// Print files
-	for _, f := range files {
-		size := f.Size()
-		name := f.Name()
+	sort.Sort(byAlpha(items))
+	sort.Sort(bySize(items))
 
-		prettySize := bytefmt.ByteSize(uint64(size))
-		fmt.Fprintf(w, "%s\t%s\t\n", name, prettySize)
+	// print
+	for _, i := range items {
+		prettySize := bytefmt.ByteSize(i.size)
+		n := i.name
+		if i.isDir {
+			n = Bold(n).String()
+		}
+		fmt.Fprintf(w, "%s\t%s\t\n", n, prettySize)
 	}
-
 	return nil
 }
 
