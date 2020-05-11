@@ -15,6 +15,8 @@ import (
 	. "github.com/logrusorgru/aurora"
 )
 
+var sortBySize = flag.Bool("s", false, "Sort items by their size")
+
 func DirSize(path string) (int64, error) {
 	var size int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
@@ -51,18 +53,26 @@ func Process(dir string, w io.Writer) error {
 			isDir: f.IsDir(),
 		}
 
-		p := path.Join(dir, n)
-		s, err := DirSize(p)
-		if err != nil {
-			return err
+		if itm.isDir {
+			p := path.Join(dir, n)
+			s, err := DirSize(p)
+			if err != nil {
+				return err
+			}
+			itm.size = uint64(s)
+		} else {
+			itm.size = uint64(f.Size())
 		}
-		itm.size = uint64(s)
 
 		items = append(items, itm)
 	}
 
-	sort.Sort(byAlpha(items))
-	sort.Sort(bySize(items))
+	// sort
+	if *sortBySize {
+		sort.Sort(bySize(items))
+	} else {
+		sort.Sort(byAlpha(items))
+	}
 
 	// print
 	for _, i := range items {
@@ -77,12 +87,14 @@ func Process(dir string, w io.Writer) error {
 }
 
 func main() {
+	flag.Parse()
+
 	dir := "." // current directory
-	if len(os.Args) == 2 {
-		dir = os.Args[1]
+	args := flag.Args()
+	if len(args) == 1 {
+		dir = args[0]
 	}
 
-	flag.Parse()
 	tw := ansiterm.NewTabWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	if err := Process(dir, tw); err != nil {
 		fmt.Printf("something went wrong: %s", err)
